@@ -1,0 +1,180 @@
+\documentclass[12pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage{setspace}
+\usepackage{hyperref}
+
+\setstretch{1.2} % Line spacing
+
+\begin{document}
+
+% ==========================================
+% COVER PAGE
+% ==========================================
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    
+    {\Huge \textbf{Smart City Traffic Simulator (Simplified)}} \\
+    \vspace{1.5cm}
+    
+    {\Large \textbf{Course Name:}} [Insert Course Name] \\
+    \vspace{1cm}
+    
+    \textbf{Submitted By:} \\
+    \vspace{0.5cm}
+    \begin{tabular}{ll}
+        Student(s) Name: & [Your Name(s)] \\
+        Roll Number(s):  & [Your Roll Number(s)] \\
+        Section/Semester: & [Section/Sem] \\
+    \end{tabular}
+    
+    \vspace{1.5cm}
+    
+    \textbf{Department:} \\
+    [Department Name] \\
+    \vspace{0.5cm}
+    
+    \textbf{University:} \\
+    [University Name] \\
+    
+    \vfill
+    
+    \textbf{Submission Date:} \\
+    \today
+    
+\end{titlepage}
+
+\newpage
+
+% ==========================================
+% ABSTRACT
+% ==========================================
+\section*{Abstract}
+This project is a minimal Java console application simulating a smart city intersection with basic traffic signal management and vehicle movement. It demonstrates OOPS principles such as abstraction, inheritance, and polymorphism. The simulation features a fixed 4-way intersection (North, East, South, West) and two vehicle types: Car and Ambulance. Emergency override logic ensures ambulances get priority green signals. The code is structured for clarity and ease of extension, focusing on educational value and simplicity. Technologies used include Java (JDK 8+), with console-based interaction.
+
+\newpage
+
+% ==========================================
+% INTRODUCTION
+% ==========================================
+\section{Introduction}
+Urban intersections require efficient traffic management to reduce congestion and prioritize emergency vehicles. This project addresses the challenge by simulating smart traffic control logic, focusing on emergency overrides and basic vehicle movement. The application is designed for educational purposes, illustrating OOPS concepts in a real-world scenario.
+
+\section{Objectives}
+\begin{itemize}
+    \item Simulate a smart city intersection with basic traffic signal management.
+    \item Demonstrate OOPS principles: abstraction, inheritance, and polymorphism.
+    \item Implement emergency override logic for ambulances.
+    \item Provide a minimal, console-based simulation for easy understanding.
+\end{itemize}
+
+\section{System Requirements}
+\subsection{Hardware Requirements}
+\begin{itemize}
+    \item Computer/Laptop
+    \item Minimum 4 GB RAM
+\end{itemize}
+
+\subsection{Software Requirements}
+\begin{itemize}
+    \item Java Development Kit (JDK) 8 or higher
+    \item IDE (NetBeans/Eclipse/IntelliJ)
+    \item Operating System (Windows/Linux/macOS)
+\end{itemize}
+
+\section{System Design}
+\subsection{Block Diagram / Architecture}
+(Add diagram below)
+\begin{figure}[h]
+    \centering
+    %\includegraphics[width=0.8\textwidth]{diagram.png} % Uncomment and add your file
+    \framebox(300,150){Place Block Diagram Here} % Placeholder box
+    \caption{System Architecture}
+\end{figure}
+
+\subsection{Modules}
+\begin{itemize}
+    \item Main (Application entry point)
+    \item TrafficSimulator (Simulation logic)
+    \item TrafficLight (Signal management)
+    \item Vehicle (Abstract base class)
+    \item Car (Car vehicle)
+    \item Ambulance (Emergency vehicle)
+\end{itemize}
+
+\section{Implementation}
+The application is implemented in Java as a console-based simulation. The code is organized into modules representing vehicles, traffic lights, and the simulator logic. Users interact via console commands:
+\begin{itemize}
+    \item \texttt{addcar} – Add a car to the simulation
+    \item \texttt{addambulance} – Add an ambulance (triggers emergency override)
+    \item \texttt{tick} – Advance the simulation by one step
+    \item \texttt{exit} – Quit the application
+\end{itemize}
+Emergency override logic ensures ambulances receive priority green signals for 3 seconds. The code demonstrates abstraction, inheritance, and polymorphism. No GUI or database is used; all interaction is via the console.
+
+\section{Screenshots}
+Insert screenshots of the application and provide short descriptions for each.
+\begin{figure}[h]
+    \centering
+    %\includegraphics[width=0.7\textwidth]{screenshot1.png} 
+    \framebox(200,100){Screenshot 1}
+    \caption{Description of screenshot 1}
+\end{figure}
+
+\section{Testing}
+Create a table showing test cases.
+
+\begin{table}[h]
+    \centering
+    \begin{tabularx}{\textwidth}{|l|X|X|l|}
+        \hline
+        \textbf{Test Case} & \textbf{Input} & \textbf{Expected Output} & \textbf{Result} \\ \hline
+    01 & addcar & Car added to intersection & Pass \\ \hline
+    02 & addambulance & Ambulance added, emergency override triggered & Pass \\ \hline
+    03 & tick & Simulation advances, signals update & Pass \\ \hline
+    04 & exit & Application terminates & Pass \\ \hline
+    \end{tabularx}
+\end{table}
+
+\section{Results and Discussion}
+The simulation successfully demonstrates smart traffic control logic and emergency override for ambulances. All objectives were achieved, and the code is structured for clarity and educational value. Console output shows vehicle movement and signal changes as expected.
+
+\section{Limitations}
+Current limitations include:
+\begin{itemize}
+    \item Only two vehicle types (Car, Ambulance)
+    \item No GUI interface
+    \item Fixed intersection (no dynamic layout)
+    \item No statistics or reporting
+\end{itemize}
+
+\section{Future Enhancements}
+Possible improvements:
+\begin{itemize}
+    \item Add more vehicle types
+    \item Implement GUI interface
+    \item Smart redistribution logic
+    \item Add statistics and reporting
+\end{itemize}
+
+\section{Conclusion}
+This project demonstrates a minimal smart city traffic simulator using Java, focusing on OOPS principles and emergency override logic. The code is designed for easy understanding and extension, providing a foundation for more advanced traffic management systems.
+
+\newpage
+
+% ==========================================
+% REFERENCES
+% ==========================================
+\section{References}
+\begin{itemize}
+    \item [1] Java Documentation: \url{https://docs.oracle.com/en/java/}
+    \item [2] Project README and educational resources
+\end{itemize}
+
+\end{document}
