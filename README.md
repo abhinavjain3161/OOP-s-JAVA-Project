@@ -72,7 +72,7 @@ javac com/smartcity/traffic/*.java com/smartcity/traffic/util/*.java
 
 ### Execution
 ```bash
-cd "/Users/anupamkanoongo/Documents/Developer's Drive/JAVAProj/src"
+cd "/Users/abhinavJain/Documents/Developer's Drive/JAVAProj/src"
 java com.smartcity.traffic.Main
 ```
 
