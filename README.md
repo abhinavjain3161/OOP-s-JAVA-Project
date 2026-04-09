@@ -37,7 +37,7 @@ This project simulates a smart city intersection with a GUI, dynamic signal mana
 ## Project Structure
 
 ```
-JAVAProj/
+OOP-s-JAVA-Project/
 ├── src/
 │   └── com/
 │       └── smartcity/
