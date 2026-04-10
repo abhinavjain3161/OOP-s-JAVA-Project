@@ -66,13 +66,13 @@ OOP-s-JAVA-Project/
 
 Open a terminal and run:
 ```bash
-cd "/Users/abhinavJain/Documents/Developer's Drive/JAVAProj/src"
+cd "C:\JavaProgrammes\OOP's java Smart City Traffic Simulator\src"
 javac com/smartcity/traffic/*.java com/smartcity/traffic/util/*.java
 ```
 
 ### Execution
 ```bash
-cd "/Users/abhinavJain/Documents/Developer's Drive/JAVAProj/src"
+cd "C:\JavaProgrammes\OOP's java Smart City Traffic Simulator\src"
 java com.smartcity.traffic.Main
 ```
 
@@ -101,6 +101,6 @@ java com.smartcity.traffic.Main
 - Improved smart signal algorithms
 
 ---
-**Project Date**: March 24, 2026  
+**Project Date**: April 10, 2026  
 **Java Version**: Compatible with JDK 8+  
 **License**: Educational Project
