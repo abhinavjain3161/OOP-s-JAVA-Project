@@ -13,6 +13,8 @@ import java.awt.Color;
  */
 public class Ambulance extends Vehicle implements EmergencyVehicle {
     private boolean emergencyMode;
+    private boolean usingOppositeLane;
+    private boolean bypassRequested;
 
     /**
      * Constructor for Ambulance
@@ -24,18 +26,24 @@ public class Ambulance extends Vehicle implements EmergencyVehicle {
     public Ambulance() {
         super(0, 0, 4, new Color(255, 0, 0), "NORTH");
         this.emergencyMode = true;
+        this.usingOppositeLane = false;
+        this.bypassRequested = false;
     }
 
     // Parameterized constructor – emergency mode ON by default
     public Ambulance(int x, int y, String laneID) {
         super(x, y, 4, new Color(255, 0, 0), laneID);
         this.emergencyMode = true;
+        this.usingOppositeLane = false;
+        this.bypassRequested = false;
     }
 
     // Overloaded constructor with emergency flag
     public Ambulance(int x, int y, String laneID, boolean emergencyMode) {
         super(x, y, 4, new Color(255, 0, 0), laneID);
         this.emergencyMode = emergencyMode;
+        this.usingOppositeLane = false;
+        this.bypassRequested = false;
     }
 
     /**
@@ -46,6 +54,16 @@ public class Ambulance extends Vehicle implements EmergencyVehicle {
      */
     @Override
     public void move(String signalState) {
+        if (!emergencyMode) {
+            if (shouldStop(signalState)) {
+                isMoving = false;
+                return;
+            }
+            isMoving = true;
+            moveInLaneDirection(speed);
+            return;
+        }
+
         // If already in intersection, always clear it at full speed
         if (isInIntersection()) {
             isMoving = true;
@@ -53,20 +71,65 @@ public class Ambulance extends Vehicle implements EmergencyVehicle {
             return;
         }
 
-        // Not in intersection – check if approaching a red light
-        boolean approachingRed = "RED".equals(signalState) && isApproachingIntersection();
+        // User-requested behavior: bypass only when there is a vehicle ahead.
+        usingOppositeLane = bypassRequested;
 
-        if (approachingRed && emergencyMode) {
-            // Ambulances slow to half speed at red but never stop
+        int targetLateral = usingOppositeLane ? getOppositeLaneCoordinate() : getBaseLaneCoordinate();
+        moveLaterallyToward(targetLateral, 3);
+
+        if ("RED".equals(signalState) && isApproachingIntersection() && !usingOppositeLane) {
             isMoving = true;
-            moveInLaneDirection(speed / 2);
-        } else if (approachingRed) {
-            // Emergency mode off – behave like a normal vehicle
-            isMoving = false;
+            moveInLaneDirection(Math.max(1, speed / 2));
+            return;
+        }
+
+        isMoving = true;
+        moveInLaneDirection(speed);
+    }
+
+    private int getBaseLaneCoordinate() {
+        switch (laneID) {
+            case "NORTH":
+                return INTERSECTION_CENTER_X + NORTH_LANE_OFFSET;
+            case "SOUTH":
+                return INTERSECTION_CENTER_X - SOUTH_LANE_OFFSET;
+            case "EAST":
+                return INTERSECTION_CENTER_Y + EAST_LANE_OFFSET;
+            case "WEST":
+                return INTERSECTION_CENTER_Y - WEST_LANE_OFFSET;
+            default:
+                return 0;
+        }
+    }
+
+    private int getOppositeLaneCoordinate() {
+        switch (laneID) {
+            case "NORTH":
+                return INTERSECTION_CENTER_X - SOUTH_LANE_OFFSET;
+            case "SOUTH":
+                return INTERSECTION_CENTER_X + NORTH_LANE_OFFSET;
+            case "EAST":
+                return INTERSECTION_CENTER_Y - WEST_LANE_OFFSET;
+            case "WEST":
+                return INTERSECTION_CENTER_Y + EAST_LANE_OFFSET;
+            default:
+                return getBaseLaneCoordinate();
+        }
+    }
+
+    private void moveLaterallyToward(int target, int step) {
+        if ("NORTH".equals(laneID) || "SOUTH".equals(laneID)) {
+            if (x < target) {
+                x = Math.min(target, x + step);
+            } else if (x > target) {
+                x = Math.max(target, x - step);
+            }
         } else {
-            // Green or yellow – move at full speed
-            isMoving = true;
-            moveInLaneDirection(speed);
+            if (y < target) {
+                y = Math.min(target, y + step);
+            } else if (y > target) {
+                y = Math.max(target, y - step);
+            }
         }
     }
 
@@ -76,6 +139,10 @@ public class Ambulance extends Vehicle implements EmergencyVehicle {
 
     @Override
     public void setOnEmergency(boolean status) { this.emergencyMode = status; }
+
+    public void setBypassRequested(boolean bypassRequested) { this.bypassRequested = bypassRequested; }
+
+    public boolean isUsingOppositeLane() { return usingOppositeLane; }
 
     /** @deprecated Use {@link #isOnEmergency()} */
     @Deprecated

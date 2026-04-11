@@ -24,6 +24,8 @@ import javax.swing.SwingUtilities;
  */
 public class Main {
     public static void main(String[] args) {
+        // Install file logger FIRST so every System.out/err call is captured.
+        SimulatorLogger.install();
         printWelcomeMessage();
 
         SwingUtilities.invokeLater(() -> {

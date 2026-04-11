@@ -2,8 +2,10 @@ package com.smartcity.traffic;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -41,6 +43,8 @@ public class TrafficSimulatorGUI extends JFrame {
     private JButton spawnAmbulanceButton;
     private JButton clearTrafficButton;
     private JButton pauseResumeButton;
+    private JButton viewLogsButton;
+    private JButton quitAppButton;
     private JSlider speedSlider;
 
     // ── Simulation Components ─────────────────────────────────────────────────
@@ -48,6 +52,7 @@ public class TrafficSimulatorGUI extends JFrame {
     private ArrayList<Vehicle> vehicles;
     private Timer simulationTimer;
     private Timer updateTimer;
+    private final Random random = new Random();
 
     // ── Statistics ────────────────────────────────────────────────────────────
     private int totalVehiclesPassed;
@@ -61,6 +66,8 @@ public class TrafficSimulatorGUI extends JFrame {
     private static final int BASE_TIMER_DELAY = 50; // ms – base animation refresh
     private static final int UPDATE_DELAY = 1000; // ms – signal update rate
     private static final int ROAD_HALF_WIDTH = 70; // half of the 140px road width
+    private static final int DEFAULT_SPAWN_DISTANCE = 200;
+    private static final int MIN_VEHICLE_GAP = 14;
 
     // Curated car colour palette for visual variety
     private static final Color[] CAR_COLORS = {
@@ -79,8 +86,8 @@ public class TrafficSimulatorGUI extends JFrame {
     // ── Constructor ───────────────────────────────────────────────────────────
 
     public TrafficSimulatorGUI() {
-        this.controlPanelWidth = (int) (WINDOW_WIDTH * 0.23);
         super("Smart City Traffic Simulator v1.1");
+        this.controlPanelWidth = (int) (WINDOW_WIDTH * 0.23);
 
         vehicles = new ArrayList<>();
         trafficController = new TrafficController();
@@ -124,13 +131,25 @@ public class TrafficSimulatorGUI extends JFrame {
         int overlayWidth = controlPanelWidth;
 
         // Title
-        JPanel titlePanel = new JPanel(new BorderLayout());
+        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
         titlePanel.setBackground(new Color(30, 30, 33));
-        titlePanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        titlePanel.setMaximumSize(new Dimension(overlayWidth, 60));
-        JLabel titleLabel = new JLabel("🚦 TRAFFIC CONTROL", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 16));
-        titleLabel.setForeground(new Color(100, 200, 255));
+        titlePanel.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+        titlePanel.setPreferredSize(new Dimension(overlayWidth, 56));
+        titlePanel.setMinimumSize(new Dimension(220, 56));
+        titlePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
+
+        JLabel titleBadge = new JLabel("CTRL");
+        titleBadge.setFont(new Font("Arial", Font.BOLD, 10));
+        titleBadge.setForeground(new Color(240, 240, 245));
+        titleBadge.setOpaque(true);
+        titleBadge.setBackground(new Color(70, 120, 200));
+        titleBadge.setBorder(BorderFactory.createEmptyBorder(3, 6, 3, 6));
+
+        JLabel titleLabel = new JLabel("TRAFFIC CONTROL");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 17));
+        titleLabel.setForeground(new Color(170, 220, 255));
+
+        titlePanel.add(titleBadge);
         titlePanel.add(titleLabel);
 
         // ── Status panel ──────────────────────────────────────────────────────
@@ -190,6 +209,16 @@ public class TrafficSimulatorGUI extends JFrame {
         clearTrafficButton = createStyledButton("🗑 Clear All Traffic", new Color(220, 53, 69));
         clearTrafficButton.addActionListener(e -> clearAllTraffic());
         controlsPanel.add(clearTrafficButton);
+        controlsPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+
+        viewLogsButton = createStyledButton("📋 View Logs", new Color(70, 130, 180));
+        viewLogsButton.addActionListener((ActionEvent e) -> showLogsDialog());
+        controlsPanel.add(viewLogsButton);
+        controlsPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+
+        quitAppButton = createStyledButton("⏻ Quit App", new Color(120, 40, 40));
+        quitAppButton.addActionListener(e -> quitApplication());
+        controlsPanel.add(quitAppButton);
         controlsPanel.add(Box.createRigidArea(new Dimension(0, 8)));
 
         // Speed slider
@@ -227,7 +256,7 @@ public class TrafficSimulatorGUI extends JFrame {
         String[] laneNames = TrafficController.getLaneSequence();
         // Interchange icons and colors for North<->South and East<->West
         // Arrows now match the 'From' direction (where vehicles originate)
-        String[] icons = { "⬆️", "➡️", "⬇️", "⬅️" };
+        String[] icons = { "↑", "→", "↓", "←" };
         Color[] btnColors = {
             new Color(155, 89, 182), // South (was North)
             new Color(241, 196, 15), // West (was East)
@@ -248,7 +277,7 @@ public class TrafficSimulatorGUI extends JFrame {
             }
             String label = icons[i] + " From " + displayLane;
             spawnTrafficButtons[i] = createStyledButton(label, btnColors[i]);
-            spawnTrafficButtons[i].addActionListener(e -> spawnHeavyTraffic(lane));
+            spawnTrafficButtons[i].addActionListener(e -> spawnSingleVehicle(lane));
             spawnPanel.add(spawnTrafficButtons[i]);
             if (i < 3)
                 spawnPanel.add(Box.createRigidArea(new Dimension(0, 5)));
@@ -348,7 +377,20 @@ public class TrafficSimulatorGUI extends JFrame {
 
         northWestControls.setBounds(leftX, nwY, leftW, nwH);
         northEastControls.setBounds(rightX, topY, rightW, topH);
-        southWestControls.setBounds(leftX, bottomY, leftW, bottomH);
+
+        // Give the SW controls extra vertical space and a slight left inset so
+        // the speed slider and labels are not clipped near the screen edge.
+        int swTopRaise = 50;
+        int swLeftInset = 0;
+        int swY = Math.max(topY, bottomY - swTopRaise);
+        int swX = leftX + swLeftInset;
+        int swW = leftW - swLeftInset;
+        int swH = panelH - swY - margin;
+        if (swW > 0 && swH > 0) {
+            southWestControls.setBounds(swX, swY, swW, swH);
+        } else {
+            southWestControls.setBounds(leftX, bottomY, leftW, bottomH);
+        }
 
         // Keep the SE box closer to the road and taller for spawn/emergency controls.
         int seTopPaddingFromRoad = 8;
@@ -383,22 +425,118 @@ public class TrafficSimulatorGUI extends JFrame {
         if (trafficController.isPaused())
             return;
 
-        for (int i = vehicles.size() - 1; i >= 0; i--) {
-            Vehicle vehicle = vehicles.get(i);
-            String laneID = vehicle.getLaneID();
+        // Move lane-by-lane in travel order so following vehicles can be clamped
+        // behind the already-moved vehicle in front.
+        for (String laneID : TrafficController.getLaneSequence()) {
             TrafficLight laneLight = trafficController.getTrafficLight(laneID);
             String signalState = laneLight != null ? laneLight.getCurrentState() : "RED";
 
-            // Only move if the light for this vehicle's lane is GREEN or YELLOW
-            // (Ambulance handles its own logic in move())
-            vehicle.move(signalState);
+            List<Vehicle> laneVehicles = getLaneVehiclesInTravelOrder(laneID);
+            Vehicle vehicleAhead = null;
 
-            if (vehicle.hasPassedIntersection()) {
+            for (Vehicle vehicle : laneVehicles) {
+                if (vehicle instanceof Ambulance) {
+                    ((Ambulance) vehicle).setBypassRequested(vehicleAhead != null);
+                }
+
+                vehicle.move(signalState);
+
+                if (vehicleAhead != null && isSameTravelPath(vehicleAhead, vehicle)) {
+                    enforceLaneSpacing(vehicleAhead, vehicle);
+                }
+                vehicleAhead = vehicle;
+            }
+        }
+
+        for (int i = vehicles.size() - 1; i >= 0; i--) {
+            if (vehicles.get(i).hasPassedIntersection()) {
                 vehicles.remove(i);
                 totalVehiclesPassed++;
             }
         }
         updateStatistics();
+    }
+
+    private List<Vehicle> getLaneVehiclesInTravelOrder(String laneID) {
+        List<Vehicle> laneVehicles = new ArrayList<>();
+        for (Vehicle vehicle : vehicles) {
+            if (laneID.equals(vehicle.getLaneID()) && !vehicle.hasPassedIntersection()) {
+                laneVehicles.add(vehicle);
+            }
+        }
+
+        laneVehicles.sort((a, b) -> {
+            switch (laneID) {
+                case "NORTH":
+                    return Integer.compare(a.getY(), b.getY()); // smaller y is ahead
+                case "SOUTH":
+                    return Integer.compare(b.getY(), a.getY()); // larger y is ahead
+                case "EAST":
+                    return Integer.compare(b.getX(), a.getX()); // larger x is ahead
+                case "WEST":
+                    return Integer.compare(a.getX(), b.getX()); // smaller x is ahead
+                default:
+                    return 0;
+            }
+        });
+        return laneVehicles;
+    }
+
+    private void enforceLaneSpacing(Vehicle vehicleAhead, Vehicle followingVehicle) {
+        int ambulanceExtraGap = (vehicleAhead instanceof Ambulance || followingVehicle instanceof Ambulance) ? 10 : 0;
+        int minCenterDistance = (getVehicleLength(vehicleAhead) + getVehicleLength(followingVehicle)) / 2
+            + MIN_VEHICLE_GAP + ambulanceExtraGap;
+
+        switch (followingVehicle.getLaneID()) {
+            case "NORTH": {
+                int minFollowingY = vehicleAhead.getY() + minCenterDistance;
+                if (followingVehicle.getY() < minFollowingY) {
+                    followingVehicle.y = minFollowingY;
+                }
+                break;
+            }
+            case "SOUTH": {
+                int maxFollowingY = vehicleAhead.getY() - minCenterDistance;
+                if (followingVehicle.getY() > maxFollowingY) {
+                    followingVehicle.y = maxFollowingY;
+                }
+                break;
+            }
+            case "EAST": {
+                int maxFollowingX = vehicleAhead.getX() - minCenterDistance;
+                if (followingVehicle.getX() > maxFollowingX) {
+                    followingVehicle.x = maxFollowingX;
+                }
+                break;
+            }
+            case "WEST": {
+                int minFollowingX = vehicleAhead.getX() + minCenterDistance;
+                if (followingVehicle.getX() < minFollowingX) {
+                    followingVehicle.x = minFollowingX;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    private boolean isSameTravelPath(Vehicle ahead, Vehicle behind) {
+        if (!ahead.getLaneID().equals(behind.getLaneID())) {
+            return false;
+        }
+
+        final int pathTolerance = 12;
+        switch (ahead.getLaneID()) {
+            case "NORTH":
+            case "SOUTH":
+                return Math.abs(ahead.getX() - behind.getX()) <= pathTolerance;
+            case "EAST":
+            case "WEST":
+                return Math.abs(ahead.getY() - behind.getY()) <= pathTolerance;
+            default:
+                return true;
+        }
     }
 
     // ── Control panel label updates ───────────────────────────────────────────
@@ -494,52 +632,126 @@ public class TrafficSimulatorGUI extends JFrame {
         System.out.println("All traffic cleared");
     }
 
+    private void quitApplication() {
+        if (simulationTimer != null) {
+            simulationTimer.stop();
+        }
+        if (updateTimer != null) {
+            updateTimer.stop();
+        }
+        System.out.println("Application closed by user");
+        dispose();
+        System.exit(0);
+    }
+
+    // ── Log viewer dialog ─────────────────────────────────────────────────────
+
+    private void showLogsDialog() {
+        // Fetch the latest in-memory log lines.
+        List<String> lines = SimulatorLogger.getBufferedLines();
+        java.nio.file.Path logPath = SimulatorLogger.getLogFilePath();
+
+        // ── Build the text content ──────────────────────────────────────────
+        StringBuilder sb = new StringBuilder();
+        if (lines.isEmpty()) {
+            sb.append("No log entries yet.");
+        } else {
+            // Show the most recent entries first (easiest to read).
+            for (int i = lines.size() - 1; i >= 0; i--) {
+                sb.append(lines.get(i)).append("\n");
+            }
+        }
+
+        // ── Dialog shell ───────────────────────────────────────────────────
+        JDialog dialog = new JDialog(this, "📋 Simulation Logs", true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
+        // ── Dark background panel ──────────────────────────────────────────
+        JPanel root = new JPanel(new BorderLayout(0, 0));
+        root.setBackground(new Color(20, 22, 26));
+
+        // ── Header ────────────────────────────────────────────────────────
+        JPanel header = new JPanel(new BorderLayout(10, 0));
+        header.setBackground(new Color(28, 30, 36));
+        header.setBorder(BorderFactory.createEmptyBorder(14, 18, 14, 18));
+
+        JLabel title = new JLabel("📋  Simulation Logs  –  latest session");
+        title.setFont(new Font("Arial", Font.BOLD, 15));
+        title.setForeground(new Color(100, 200, 255));
+        header.add(title, BorderLayout.WEST);
+
+        if (logPath != null) {
+            JLabel filePath = new JLabel(logPath.toAbsolutePath().toString());
+            filePath.setFont(new Font("Consolas", Font.PLAIN, 10));
+            filePath.setForeground(new Color(100, 100, 120));
+            header.add(filePath, BorderLayout.SOUTH);
+        }
+
+        root.add(header, BorderLayout.NORTH);
+
+        // ── Scrollable text area ───────────────────────────────────────────
+        JTextArea textArea = new JTextArea(sb.toString());
+        textArea.setFont(new Font("Consolas", Font.PLAIN, 12));
+        textArea.setBackground(new Color(18, 19, 24));
+        textArea.setForeground(new Color(200, 215, 235));
+        textArea.setCaretColor(new Color(100, 200, 255));
+        textArea.setEditable(false);
+        textArea.setLineWrap(false);
+        textArea.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+
+        JScrollPane scroll = new JScrollPane(textArea);
+        scroll.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 0,
+                new Color(50, 55, 65)));
+        scroll.getViewport().setBackground(new Color(18, 19, 24));
+        scroll.getVerticalScrollBar().setBackground(new Color(28, 30, 36));
+        scroll.getHorizontalScrollBar().setBackground(new Color(28, 30, 36));
+        // Scroll to top (most recent entry is first)
+        textArea.setCaretPosition(0);
+        root.add(scroll, BorderLayout.CENTER);
+
+        // ── Footer bar ─────────────────────────────────────────────────────
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 10));
+        footer.setBackground(new Color(28, 30, 36));
+
+        JLabel countLabel = new JLabel(lines.size() + " entries");
+        countLabel.setFont(new Font("Consolas", Font.PLAIN, 11));
+        countLabel.setForeground(new Color(120, 130, 150));
+        footer.add(countLabel);
+
+        JButton closeBtn = new JButton("Close");
+        closeBtn.setFont(new Font("Arial", Font.BOLD, 12));
+        closeBtn.setBackground(new Color(52, 152, 219));
+        closeBtn.setForeground(Color.WHITE);
+        closeBtn.setFocusPainted(false);
+        closeBtn.setBorderPainted(false);
+        closeBtn.setOpaque(true);
+        closeBtn.setMargin(new Insets(6, 20, 6, 20));
+        closeBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        closeBtn.addActionListener(ev -> dialog.dispose());
+        footer.add(closeBtn);
+
+        root.add(footer, BorderLayout.SOUTH);
+
+        // ── Size & position ────────────────────────────────────────────────
+        dialog.setContentPane(root);
+        dialog.setSize(820, 520);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     // ── Vehicle spawning ──────────────────────────────────────────────────────
 
-    private void spawnHeavyTraffic(String laneID) {
-        Random random = new Random();
-        int count = 5 + random.nextInt(4); // 5–8 vehicles
-
-        int cx = INTERSECTION_SIZE / 2;
-        int cy = INTERSECTION_SIZE / 2;
-        int spacing = 70;
-        int startDistance = 150;
-
-        for (int i = 0; i < count; i++) {
-            int vehicleType = random.nextInt(3);
-            Vehicle vehicle;
-
-            switch (laneID) {
-                case "NORTH":
-                    vehicle = createVehicle(vehicleType,
-                            cx + Vehicle.NORTH_LANE_OFFSET,
-                            cy + ROAD_HALF_WIDTH + startDistance + (i * spacing),
-                            laneID);
-                    break;
-                case "SOUTH":
-                    vehicle = createVehicle(vehicleType,
-                            cx - Vehicle.SOUTH_LANE_OFFSET,
-                            cy - ROAD_HALF_WIDTH - startDistance - (i * spacing),
-                            laneID);
-                    break;
-                case "EAST":
-                    vehicle = createVehicle(vehicleType,
-                            cx - ROAD_HALF_WIDTH - startDistance - (i * spacing),
-                            cy + Vehicle.EAST_LANE_OFFSET,
-                            laneID);
-                    break;
-                case "WEST":
-                    vehicle = createVehicle(vehicleType,
-                            cx + ROAD_HALF_WIDTH + startDistance + (i * spacing),
-                            cy - Vehicle.WEST_LANE_OFFSET,
-                            laneID);
-                    break;
-                default:
-                    return;
-            }
-            vehicles.add(vehicle);
+    private void spawnSingleVehicle(String laneID) {
+        int vehicleType = random.nextInt(3);
+        int vehicleLength = getVehicleLengthByType(vehicleType);
+        Point spawnPoint = getNextSpawnPoint(laneID, vehicleLength);
+        if (spawnPoint == null) {
+            return;
         }
-        System.out.println("Spawned " + count + " vehicles to " + laneID + " lane");
+
+        Vehicle vehicle = createVehicle(vehicleType, spawnPoint.x, spawnPoint.y, laneID);
+        vehicles.add(vehicle);
+        System.out.println("Spawned 1 " + vehicle.getVehicleType() + " in " + laneID + " lane");
     }
 
     /**
@@ -548,7 +760,6 @@ public class TrafficSimulatorGUI extends JFrame {
      * @param type 0 = PrivateCar (random colour), 1 = PublicBus, 2 = Motorcycle
      */
     private Vehicle createVehicle(int type, int x, int y, String laneID) {
-        Random random = new Random();
         switch (type) {
             case 0:
                 return new PrivateCar(x, y, laneID, CAR_COLORS[random.nextInt(CAR_COLORS.length)]);
@@ -562,37 +773,127 @@ public class TrafficSimulatorGUI extends JFrame {
     }
 
     private void spawnAmbulance() {
-        Random random = new Random();
         String[] lanes = TrafficController.getLaneSequence();
         String randomLane = lanes[random.nextInt(lanes.length)];
 
-        int cx = INTERSECTION_SIZE / 2;
-        int cy = INTERSECTION_SIZE / 2;
-        int spawnDistance = 200;
-
-        Ambulance ambulance;
-        switch (randomLane) {
-            case "NORTH":
-                ambulance = new Ambulance(cx + Vehicle.NORTH_LANE_OFFSET,
-                        cy + ROAD_HALF_WIDTH + spawnDistance, randomLane);
-                break;
-            case "SOUTH":
-                ambulance = new Ambulance(cx - Vehicle.SOUTH_LANE_OFFSET,
-                        cy - ROAD_HALF_WIDTH - spawnDistance, randomLane);
-                break;
-            case "EAST":
-                ambulance = new Ambulance(cx - ROAD_HALF_WIDTH - spawnDistance,
-                        cy + Vehicle.EAST_LANE_OFFSET, randomLane);
-                break;
-            case "WEST":
-                ambulance = new Ambulance(cx + ROAD_HALF_WIDTH + spawnDistance,
-                        cy - Vehicle.WEST_LANE_OFFSET, randomLane);
-                break;
-            default:
-                return;
+        Point spawnPoint = getNextSpawnPoint(randomLane, 28);
+        if (spawnPoint == null) {
+            return;
         }
+
+        Ambulance ambulance = new Ambulance(spawnPoint.x, spawnPoint.y, randomLane);
         vehicles.add(ambulance);
         System.out.println("🚑 Ambulance spawned on " + randomLane + " lane!");
+    }
+
+    private Point getNextSpawnPoint(String laneID, int newVehicleLength) {
+        int cx = INTERSECTION_SIZE / 2;
+        int cy = INTERSECTION_SIZE / 2;
+
+        int spawnX;
+        int spawnY;
+        switch (laneID) {
+            case "NORTH":
+                spawnX = cx + Vehicle.NORTH_LANE_OFFSET;
+                spawnY = cy + ROAD_HALF_WIDTH + DEFAULT_SPAWN_DISTANCE;
+                break;
+            case "SOUTH":
+                spawnX = cx - Vehicle.SOUTH_LANE_OFFSET;
+                spawnY = cy - ROAD_HALF_WIDTH - DEFAULT_SPAWN_DISTANCE;
+                break;
+            case "EAST":
+                spawnX = cx - ROAD_HALF_WIDTH - DEFAULT_SPAWN_DISTANCE;
+                spawnY = cy + Vehicle.EAST_LANE_OFFSET;
+                break;
+            case "WEST":
+                spawnX = cx + ROAD_HALF_WIDTH + DEFAULT_SPAWN_DISTANCE;
+                spawnY = cy - Vehicle.WEST_LANE_OFFSET;
+                break;
+            default:
+                return null;
+        }
+
+        Vehicle backMostVehicle = getBackMostVehicleInLane(laneID);
+        if (backMostVehicle != null) {
+            int ambulanceExtraGap = (backMostVehicle instanceof Ambulance || newVehicleLength >= 28) ? 10 : 0;
+            int spacing = (getVehicleLength(backMostVehicle) + newVehicleLength) / 2
+                    + MIN_VEHICLE_GAP + ambulanceExtraGap;
+            switch (laneID) {
+                case "NORTH":
+                    spawnY = Math.max(spawnY, backMostVehicle.getY() + spacing);
+                    break;
+                case "SOUTH":
+                    spawnY = Math.min(spawnY, backMostVehicle.getY() - spacing);
+                    break;
+                case "EAST":
+                    spawnX = Math.min(spawnX, backMostVehicle.getX() - spacing);
+                    break;
+                case "WEST":
+                    spawnX = Math.max(spawnX, backMostVehicle.getX() + spacing);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return new Point(spawnX, spawnY);
+    }
+
+    private Vehicle getBackMostVehicleInLane(String laneID) {
+        Vehicle backMost = null;
+        for (Vehicle vehicle : vehicles) {
+            if (!laneID.equals(vehicle.getLaneID()) || vehicle.hasPassedIntersection()) {
+                continue;
+            }
+
+            if (backMost == null) {
+                backMost = vehicle;
+                continue;
+            }
+
+            switch (laneID) {
+                case "NORTH":
+                    if (vehicle.getY() > backMost.getY())
+                        backMost = vehicle;
+                    break;
+                case "SOUTH":
+                    if (vehicle.getY() < backMost.getY())
+                        backMost = vehicle;
+                    break;
+                case "EAST":
+                    if (vehicle.getX() < backMost.getX())
+                        backMost = vehicle;
+                    break;
+                case "WEST":
+                    if (vehicle.getX() > backMost.getX())
+                        backMost = vehicle;
+                    break;
+                default:
+                    break;
+            }
+        }
+        return backMost;
+    }
+
+    private int getVehicleLengthByType(int type) {
+        switch (type) {
+            case 1:
+                return 30; // Bus
+            case 2:
+                return 18; // Motorcycle
+            default:
+                return 24; // Car
+        }
+    }
+
+    private int getVehicleLength(Vehicle vehicle) {
+        if (vehicle instanceof PublicBus)
+            return 30;
+        if (vehicle instanceof Motorcycle)
+            return 18;
+        if (vehicle instanceof Ambulance)
+            return 28;
+        return 24;
     }
 
     // ── Statistics ────────────────────────────────────────────────────────────
